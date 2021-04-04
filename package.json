@@ -1,0 +1,14 @@
+{
+  "private": true,
+  "name": "cards",
+  "scripts": {
+    "re:build": "bsb -make-world -clean-world",
+    "re:start": "bsb -make-world -clean-world -w"
+  },
+  "devDependencies": {
+    "bs-platform": "^9.0.2"
+  },
+  "dependencies": {
+    "csv-stringify": "^5.6.2"
+  }
+}

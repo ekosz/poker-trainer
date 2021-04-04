@@ -1,0 +1,19 @@
+dependencies:
+  csv-stringify: 5.6.2
+devDependencies:
+  bs-platform: 9.0.2
+lockfileVersion: 5.2
+packages:
+  /bs-platform/9.0.2:
+    dev: true
+    hasBin: true
+    requiresBuild: true
+    resolution:
+      integrity: sha512-Ye9JqJ4Oa7mcjjoOVRYI8Uc2Cf8N7jQLWDcdUplY7996d/YErSR7WitmV7XnSwr4EvdrbwjEsg1NxNjUQv3ChA==
+  /csv-stringify/5.6.2:
+    dev: false
+    resolution:
+      integrity: sha512-n3rIVbX6ylm1YsX2NEug9IaPV8xRnT+9/NNZbrA/bcHgOSSeqtWla6XnI/xmyu57wIw+ASCAoX1oM6EZtqJV0A==
+specifiers:
+  bs-platform: ^9.0.2
+  csv-stringify: ^5.6.2
