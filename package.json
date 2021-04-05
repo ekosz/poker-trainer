@@ -3,6 +3,7 @@
   "name": "cards",
   "scripts": {
     "simulateGame": "node ./scripts/simulateGame.mjs",
+    "recalculateOdds": "node ./scripts/recalculateOdds.mjs",
     "re:build": "bsb -make-world -clean-world",
     "re:start": "bsb -make-world -clean-world -w"
   },

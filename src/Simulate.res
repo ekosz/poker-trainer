@@ -1,13 +1,3 @@
-type url
-
-@new external makeURL: (string, 'a) => url = "URL"
-
-@module("fs")
-external writeFile: (url, string, @as(json`{"encoding": "utf8"}`) _) => unit = "writeFileSync"
-@module("csv-stringify/lib/sync.js") external stringifyCSV: (. array<'a>) => string = "default"
-
-// new URL('./foo.txt', import.meta.url)
-
 type deck = array<Card.t>
 
 type result = {
@@ -16,8 +6,6 @@ type result = {
   hand: Scoring.hand,
   score: Scoring.score,
 }
-
-let simulations = 1_000_000
 
 let genDeck = (): deck => {
   Belt.Array.makeBy(52, i => {
@@ -73,9 +61,8 @@ let playGame = playerCount => {
   (winners, losers, board)
 }
 
-let run = () => {
+let run = (simulations, playerCount) => {
   open Belt.Array
-  let playerCount = 9
   make(simulations, ())
   ->reduce(Js.Dict.empty(), (acc, _) => {
     let (winners, losers, _) = playGame(playerCount)
@@ -108,12 +95,4 @@ let run = () => {
   ->reduce([], (acc: array<(string, float)>, (key, (wins, loses))) => {
     acc->concat([(key, float_of_int(wins) /. float_of_int(wins + loses))])
   })
-  ->stringifyCSV(. _)
-  ->writeFile(
-    makeURL(
-      `../data/odds_${playerCount->string_of_int}_handed.csv`,
-      @warning("-103") %raw(`import.meta.url`),
-    ),
-    _,
-  )
 }
