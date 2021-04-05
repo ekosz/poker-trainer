@@ -18,7 +18,6 @@ type result = {
 }
 
 let simulations = 1_000_000
-let playerCount = 9
 
 let genDeck = (): deck => {
   Belt.Array.makeBy(52, i => {
@@ -42,7 +41,7 @@ let classify = ({Scoring.p1: p1, p2}) => {
   }
 }
 
-let playGame = () => {
+let playGame = playerCount => {
   open Belt.Array
   let d = genDeck()->shuffle
   let hands = makeBy(playerCount, i => {
@@ -76,9 +75,10 @@ let playGame = () => {
 
 let run = () => {
   open Belt.Array
+  let playerCount = 9
   make(simulations, ())
   ->reduce(Js.Dict.empty(), (acc, _) => {
-    let (winners, losers, _) = playGame()
+    let (winners, losers, _) = playGame(playerCount)
 
     winners->forEach(({pocketCards}) => {
       let classification = pocketCards->classify
