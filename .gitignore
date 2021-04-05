@@ -1,4 +1,5 @@
 .merlin
+.bsb.lock
 lib/
 node_modules/
 src/**/*.mjs

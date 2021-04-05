@@ -12,7 +12,8 @@ type deck = array<Card.t>
 
 type result = {
   idx: int,
-  hand: array<Card.t>,
+  pocketCards: Scoring.pocketCards,
+  hand: Scoring.hand,
   score: Scoring.score,
 }
 
@@ -26,11 +27,11 @@ let genDeck = (): deck => {
   })
 }
 
-let classify = hand => {
+let classify = ({Scoring.p1: p1, p2}) => {
   open Card
 
   @warning("-8")
-  let [card1, card2] = hand->Belt.SortArray.stableSortBy(Scoring.compareCards)
+  let [card1, card2] = [p1, p2]->Belt.SortArray.stableSortBy(Scoring.compareCards)
   if card1.rank == card2.rank {
     let rankString = card1.rank->stringOfRank
     `${rankString}${rankString}`
@@ -45,28 +46,32 @@ let playGame = () => {
   open Belt.Array
   let d = genDeck()->shuffle
   let hands = makeBy(playerCount, i => {
-    [d->getUnsafe(i), d->getUnsafe(playerCount + i)]
+    {Scoring.p1: d->getUnsafe(i), p2: d->getUnsafe(playerCount + i)}
   })
-  let table = [
-    d->getUnsafe(playerCount * 2 + 1),
-    d->getUnsafe(playerCount * 2 + 2),
-    d->getUnsafe(playerCount * 2 + 3),
-    d->getUnsafe(playerCount * 2 + 5),
-    d->getUnsafe(playerCount * 2 + 7),
-  ]
+  let board = {
+    Scoring.flop1: d->getUnsafe(playerCount * 2 + 1),
+    flop2: d->getUnsafe(playerCount * 2 + 2),
+    flop3: d->getUnsafe(playerCount * 2 + 3),
+    turn: Some(d->getUnsafe(playerCount * 2 + 5)),
+    river: Some(d->getUnsafe(playerCount * 2 + 7)),
+  }
+
+  let make = Scoring.make(board)
+  let compare = Scoring.compare(board)
 
   let results =
     hands
-    ->mapWithIndex((idx, hand) => {
-      let score = hand->concat(table)->Scoring.make
-      {idx: idx, hand: hand, score: score}
+    ->mapWithIndex((idx, pocketCards) => {
+      let (score, hand) = make(pocketCards)
+      {idx: idx, hand: hand, score: score, pocketCards: pocketCards}
     })
-    ->Belt.SortArray.stableSortBy(({score: a}, {score: b}) => Scoring.compare(a, b))
+    ->Belt.SortArray.stableSortBy(({pocketCards: a}, {pocketCards: b}) => compare(a, b))
 
   let first = results->getUnsafe(0)
 
-  let (winners, losers) = results->partition(({score}) => Scoring.compare(first.score, score) === 0)
-  (winners, losers, table)
+  let (winners, losers) =
+    results->partition(({pocketCards}) => compare(first.pocketCards, pocketCards) === 0)
+  (winners, losers, board)
 }
 
 let run = () => {
@@ -75,8 +80,8 @@ let run = () => {
   ->reduce(Js.Dict.empty(), (acc, _) => {
     let (winners, losers, _) = playGame()
 
-    winners->forEach(({hand}) => {
-      let classification = hand->classify
+    winners->forEach(({pocketCards}) => {
+      let classification = pocketCards->classify
       acc->Js.Dict.set(
         classification,
         switch acc->Js.Dict.get(classification) {
@@ -86,8 +91,8 @@ let run = () => {
       )
     })
 
-    losers->forEach(({hand}) => {
-      let classification = hand->classify
+    losers->forEach(({pocketCards}) => {
+      let classification = pocketCards->classify
       acc->Js.Dict.set(
         classification,
         switch acc->Js.Dict.get(classification) {
