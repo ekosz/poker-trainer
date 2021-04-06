@@ -169,11 +169,11 @@ let genSceanario = numberOfPlayers => {
     pocketCards: {p1: p1, p2: p2},
     positionNum: positionNum,
     position: positionOf(numberOfPlayers, positionNum),
-    previousAction: positionNum === 4
+    previousAction: positionNum === 4 || (positionNum === 1 && numberOfPlayers === 3)
       ? Limp
-      : seed >= 0.7
+      : seed >= 0.4
       ? Limp
-      : seed >= 0.15
+      : seed >= 0.3
       ? StrongRaise
       : LoseRaise,
   }
@@ -193,7 +193,10 @@ let describeScenario = (scenario: scenario) => {
   [
     `You are playing ${scenario.numberOfPlayers->string_of_int} handed and are ${scenario.position->stringOfPosition}.`,
     `You are delt ${scenario.pocketCards.p1->Card.stringOfCard}, ${scenario.pocketCards.p2->Card.stringOfCard}.`,
-    scenario.position == UnderTheGun ? "" : prevPosition->stringOfPosition ++ prevAction ++ ".",
+    scenario.position == UnderTheGun ||
+      (scenario.numberOfPlayers === 3 && scenario.position == Button)
+      ? ""
+      : prevPosition->stringOfPosition ++ prevAction ++ ".",
     "What do you do?",
   ]
   ->Js.Array2.filter(x => x != "")
