@@ -39,8 +39,8 @@ const randomInt = (min, max) => {
   return Math.floor(Math.random() * (max - min) + min);
 }
 
-async function preFlopTraining() {
-  const numberOfPlayers = randomInt(3, 11);
+async function preFlopTraining(numberOfPlayers) {
+  numberOfPlayers = numberOfPlayers || randomInt(3, 11);
   const scenario = PreflopTraining.genSceanario(numberOfPlayers);
   const question = {
     type: 'list',
@@ -100,9 +100,14 @@ program
   .command('train', { isDefault: true })
   .description('starts a new training session')
   .addOption(new Option('-m, --mode <mode>', 'training mode').choices(['pre-flop']).default('pre-flop'))
-  .action(async _options => {
+  .addOption(new Option('-h, --hands <size>', 'hand size').choices(['3','4','5','6','7','8','9','10','random']).default('random'))
+  .action(async options => {
+    let numberOfPlayers;
+    if (options.hands !== 'random') {
+      numberOfPlayers = parseInt(options.hands, 10);
+    }
     while(true) {
-      await preFlopTraining();
+      await preFlopTraining(numberOfPlayers);
       if (!(await inquirer.prompt([{type: 'confirm', name: 'again', default: true }])).again) {
         break;
       }
