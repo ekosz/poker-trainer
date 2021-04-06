@@ -2,8 +2,7 @@
   "private": true,
   "name": "cards",
   "scripts": {
-    "simulateGame": "node ./scripts/simulateGame.mjs",
-    "recalculateOdds": "node ./scripts/recalculateOdds.mjs",
+    "cli": "node ./bin/cli.mjs",
     "re:build": "bsb -make-world -clean-world",
     "re:start": "bsb -make-world -clean-world -w"
   },

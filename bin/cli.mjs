@@ -7,6 +7,9 @@ import chalk from 'chalk';
 import { Command, Option } from 'commander/esm.mjs';
 // Make sure to run `re:build` first or these imports will fail
 import * as PreflopTraining from '../src/PreflopTraining.mjs';
+import * as Simulate from '../src/Simulate.mjs';
+import * as Card from '../src/Card.mjs';
+import * as Scoring from '../src/Scoring.mjs';
 
 const packageJSON = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), { encoding: 'utf8' })
@@ -58,6 +61,41 @@ async function preFlopTraining() {
   }
 }
 
+function recalculateOdds(numberOfPlayers, simulations) {
+  console.log(`Running ${simulations} ${numberOfPlayers} handed games...`)
+  const results = Simulate.run(simulations, numberOfPlayers);
+
+  writeFileSync(
+    new URL(`../data/odds_${numberOfPlayers}_handed.csv`, import.meta.url),
+    stringify(results),
+    { encoding: 'utf8' }
+  );
+}
+
+function printResult({idx, hand, pocketCards, score}) {
+  console.log(
+    `Player ${idx + 1}`,
+    [pocketCards.p1, pocketCards.p2].map(c => Card.stringOfCard(c)),
+    Scoring.stringOfScore(score, hand),
+    [hand.c1, hand.c2, hand.c3, hand.c4, hand.c5].map(c => Card.stringOfCard(c))
+  );
+}
+
+function simulateGame(numberOfPlayers) {
+  var [winners, losers, board] = Simulate.playGame(numberOfPlayers);
+  console.log("Board", [
+    board.flop1,
+    board.flop2,
+    board.flop3,
+    board.turn,
+    board.river
+  ].map(c => Card.stringOfCard(c)));
+  console.log(winners.length === 1 ? "Winner" : "Winners");
+  winners.forEach(printResult);
+  console.log("Losers");
+  losers.forEach(printResult)
+}
+
 program
   .command('train', { isDefault: true })
   .description('starts a new training session')
@@ -69,6 +107,23 @@ program
         break;
       }
     }
+  });
+
+program
+  .command('recalculateOdds')
+  .description('Recalculates the odds csv for a given hand size. These odds are later used by the trainer for giving feedback. The odds are calculated by running many many simulations and seeing which pocket cards lead to the best odds of winning.')
+  .addOption(new Option('-h, --hands <size>', 'hand size').makeOptionMandatory(true))
+  .addOption(new Option('-s, --simulations <amount>', 'number of simulations').default(1_000_000))
+  .action(({ hands, simulations }) => {
+    recalculateOdds(hands, simulations)
+  });
+
+program
+  .command('simulateGame')
+  .description('Plays a game with X players and prints the results to stdout. This script is mostly just used for testing purposes.')
+  .addOption(new Option('-h, --hands <size>', 'hand size').default(9))
+  .action(({ hands }) => {
+    simulateGame(hands)
   });
 
 program.parse(process.argv);
