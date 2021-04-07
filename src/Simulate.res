@@ -5,21 +5,6 @@ type result = {
   score: Scoring.score,
 }
 
-let classify = ({Common.p1: p1, p2}) => {
-  open Card
-
-  @warning("-8")
-  let [card1, card2] = [p1, p2]->Belt.SortArray.stableSortBy(Scoring.compareCards)
-  if card1.rank == card2.rank {
-    let rankString = card1.rank->stringOfRank
-    `${rankString}${rankString}`
-  } else if card1.suite == card2.suite {
-    `${card1.rank->stringOfRank}${card2.rank->stringOfRank}s`
-  } else {
-    `${card1.rank->stringOfRank}${card2.rank->stringOfRank}o`
-  }
-}
-
 let playGame = playerCount => {
   open Belt.Array
   let d = Game.genDeck()
@@ -59,7 +44,7 @@ let run = (simulations, playerCount) => {
     let (winners, losers, _) = playGame(playerCount)
 
     winners->forEach(({pocketCards}) => {
-      let classification = pocketCards->classify
+      let classification = pocketCards->Classification.make->Classification.toString
       acc->Js.Dict.set(
         classification,
         switch acc->Js.Dict.get(classification) {
@@ -70,7 +55,7 @@ let run = (simulations, playerCount) => {
     })
 
     losers->forEach(({pocketCards}) => {
-      let classification = pocketCards->classify
+      let classification = pocketCards->Classification.make->Classification.toString
       acc->Js.Dict.set(
         classification,
         switch acc->Js.Dict.get(classification) {

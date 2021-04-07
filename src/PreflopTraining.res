@@ -13,22 +13,8 @@ type scenario = {
   pocketCards: Common.pocketCards,
 }
 
-let pctOfTotal = pct => pct->float_of_int /. AI.totalCombos->float_of_int
 let roundToThousandths = num => Js.Math.round(num *. 1000.0) /. 1000.0
 let roundToTenths = num => Js.Math.round(num *. 10.0) /. 10.0
-
-let calcPct = (handToEval: Classification.t, hands: array<Classification.t>) => {
-  let (_, totalHands) = hands->Belt.Array.reduce((false, 0), ((found, acc), hand) => {
-    if found {
-      (found, acc)
-    } else if hand === handToEval {
-      (true, acc + hand->Classification.handCount)
-    } else {
-      (false, acc + hand->Classification.handCount)
-    }
-  })
-  totalHands->pctOfTotal
-}
 
 let genSceanario = numberOfPlayers => {
   @warning("-8")
@@ -95,7 +81,8 @@ let testScenario = (action: Game.action, scenario: scenario, hands: array<Classi
   | BigBlind | SmallBlind => AI.preflopBlinds
   | _ => AI.preflopEarlyPosition
   }
-  let pocketEquity = scenario.pocketCards->Classification.make->calcPct(hands)->roundToThousandths
+  let pocketEquity =
+    scenario.pocketCards->Classification.make->AI.calcPct(hands)->roundToThousandths
 
   switch (action, scenario.previousAction) {
   | (Check, Limp) if scenario.position == BigBlind && pocketEquity <= checker.raise => {
@@ -195,7 +182,7 @@ let testScenario = (action: Game.action, scenario: scenario, hands: array<Classi
       (false, msg)
     }
   | (Fold, StrongRaise) | (Call, StrongRaise)
-    if scenario.pocketCards->Simulate.classify === AI.bluffHand => {
+    if scenario.pocketCards->Classification.make->Classification.toString === AI.bluffHand => {
       let msg =
         [
           "You should have re-raised.",

@@ -34,3 +34,5 @@ let handCount = classification => {
     12 // 12 ways to make any other combo (4 x 4 suites)
   }
 }
+
+let toString = x => x

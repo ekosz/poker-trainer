@@ -48,3 +48,18 @@ let preflopBlinds = {
 }
 
 let totalCombos = 1326 // total combinations of pocket cards
+
+let pctOfTotal = pct => pct->float_of_int /. totalCombos->float_of_int
+
+let calcPct = (handToEval, hands) => {
+  let (_, totalHands) = hands->Belt.Array.reduce((false, 0), ((found, acc), hand) => {
+    if found {
+      (found, acc)
+    } else if hand === handToEval {
+      (true, acc + hand->Classification.handCount)
+    } else {
+      (false, acc + hand->Classification.handCount)
+    }
+  })
+  totalHands->pctOfTotal
+}
