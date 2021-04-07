@@ -1,11 +1,11 @@
 type result = {
   idx: int,
-  pocketCards: Game.pocketCards,
-  hand: Game.hand,
+  pocketCards: Common.pocketCards,
+  hand: Common.hand,
   score: Scoring.score,
 }
 
-let classify = ({Game.p1: p1, p2}) => {
+let classify = ({Common.p1: p1, p2}) => {
   open Card
 
   @warning("-8")
@@ -24,10 +24,10 @@ let playGame = playerCount => {
   open Belt.Array
   let d = Game.genDeck()
   let hands = makeBy(playerCount, i => {
-    {Game.p1: d->getUnsafe(i), p2: d->getUnsafe(playerCount + i)}
+    {Common.p1: d->getUnsafe(i), p2: d->getUnsafe(playerCount + i)}
   })
   let board = {
-    Game.flop1: d->getUnsafe(playerCount * 2 + 1),
+    Common.flop1: d->getUnsafe(playerCount * 2 + 1),
     flop2: d->getUnsafe(playerCount * 2 + 2),
     flop3: d->getUnsafe(playerCount * 2 + 3),
     turn: Some(d->getUnsafe(playerCount * 2 + 5)),

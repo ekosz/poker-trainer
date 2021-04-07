@@ -1,162 +1,34 @@
-let bluffHand = "A5s"
-let smallBindCallingEquity = 0.666
-
 exception Invariant(string)
-
-type position =
-  | BigBlind
-  | SmallBlind
-  | Button
-  | Cutoff
-  | Hijack
-  | Lojack
-  | MiddlePosition
-  | UnderTheGun
-  | UnderTheGunPlus1
-  | UnderTheGunPlus2
 
 type previousAction =
   | Limp
   | LoseRaise
   | StrongRaise
 
-type action =
-  | Check
-  | Call
-  | Raise
-  | Fold
-
 type scenario = {
   numberOfPlayers: int,
   previousAction: previousAction,
   positionNum: int,
-  position: position,
-  pocketCards: Game.pocketCards,
+  position: Game.position,
+  pocketCards: Common.pocketCards,
 }
 
-type preFlopPcts = {
-  raise: float,
-  strongCallRaise: float,
-  strongReRaise: float,
-  loseCallRaise: float,
-  loseReRaise: float,
-}
-
-// Any position right of the cutoff
-let earlyPosition = {
-  raise: 0.143,
-  strongCallRaise: 0.113,
-  strongReRaise: 0.009,
-  loseCallRaise: 0.143,
-  loseReRaise: 0.044,
-}
-
-// Position right of the button
-let cutOff = {
-  raise: 0.222,
-  strongCallRaise: 0.113,
-  strongReRaise: 0.009,
-  loseCallRaise: 0.186,
-  loseReRaise: 0.054,
-}
-
-// All positions are relative to the button. Acts second to last pre-flop and last post-flop
-let button = {
-  raise: 0.333,
-  strongCallRaise: 0.113,
-  strongReRaise: 0.009,
-  loseCallRaise: 0.222,
-  loseReRaise: 0.087,
-}
-
-// The blinds are left of the button. They are last to act pre-flop and first
-// to act post-flop. For now we're using the same percents for both big and
-// small blind
-let blinds = {
-  raise: 0.063,
-  strongCallRaise: 0.101,
-  strongReRaise: 0.009,
-  loseCallRaise: 0.143,
-  loseReRaise: 0.044,
-}
-
-let totalCombos = 1326 // total combinations of pocket cards
-
-let isPair = classification => {
-  @warning("-8")
-  switch classification->Js.String2.split("") {
-  | [a, b] if a === b => true
-  | _ => false
-  }
-}
-
-let isSuited = classification => classification->Js.String2.endsWith("s")
-let pctOfTotal = pct => pct->float_of_int /. totalCombos->float_of_int
+let pctOfTotal = pct => pct->float_of_int /. AI.totalCombos->float_of_int
 let roundToThousandths = num => Js.Math.round(num *. 1000.0) /. 1000.0
 let roundToTenths = num => Js.Math.round(num *. 10.0) /. 10.0
 
-let classificationToHandCount = classification => {
-  if isPair(classification) {
-    6 // 6 ways to make a pair (sh, sd, sc, hd, hc, dc)
-  } else if isSuited(classification) {
-    4 // 4 suites
-  } else {
-    12 // 12 ways to make any other combo (4 x 4 suites)
-  }
-}
-
-let calcPct = (handToEval, hands) => {
+let calcPct = (handToEval: Classification.t, hands: array<Classification.t>) => {
   let (_, totalHands) = hands->Belt.Array.reduce((false, 0), ((found, acc), hand) => {
     if found {
       (found, acc)
     } else if hand === handToEval {
-      (true, acc + hand->classificationToHandCount)
+      (true, acc + hand->Classification.handCount)
     } else {
-      (false, acc + hand->classificationToHandCount)
+      (false, acc + hand->Classification.handCount)
     }
   })
   totalHands->pctOfTotal
 }
-
-let positionOf = (numberOfPlayers, positionNum) => {
-  switch (numberOfPlayers, positionNum) {
-  | (_, 1) => Button
-  | (_, 2) => SmallBlind
-  | (_, 3) => BigBlind
-  | (_, 4) => UnderTheGun
-  | (6, 5) => UnderTheGunPlus1
-  | (7, 5) => Lojack
-  | (7, 6) => Hijack
-  | (8, 5) => MiddlePosition
-  | (8, 6) => Lojack
-  | (8, 7) => Hijack
-  | (9, 5) => UnderTheGunPlus1
-  | (9, 6) => MiddlePosition
-  | (9, 7) => Lojack
-  | (9, 8) => Hijack
-  | (10, 5) => UnderTheGunPlus1
-  | (10, 6) => UnderTheGunPlus2
-  | (10, 7) => MiddlePosition
-  | (10, 8) => Lojack
-  | (10, 9) => Hijack
-  | (5, 5) | (6, 6) | (7, 7) | (8, 8) | (9, 9) | (10, 10) => Cutoff
-  | _ => raise(Invariant("Invalid position"))
-  }
-}
-
-let stringOfPosition = p =>
-  switch p {
-  | Button => "the button"
-  | BigBlind => "the big blind"
-  | SmallBlind => "the small blind"
-  | UnderTheGun => "under the gun"
-  | UnderTheGunPlus1 => "under the gun +1"
-  | UnderTheGunPlus2 => "under the gun +2"
-  | MiddlePosition => "middle position"
-  | Lojack => "the lojack"
-  | Hijack => "the highjack"
-  | Cutoff => "the cutoff"
-  }
 
 let genSceanario = numberOfPlayers => {
   @warning("-8")
@@ -167,7 +39,7 @@ let genSceanario = numberOfPlayers => {
     numberOfPlayers: numberOfPlayers,
     pocketCards: {p1: p1, p2: p2},
     positionNum: positionNum,
-    position: positionOf(numberOfPlayers, positionNum),
+    position: Game.positionOf(numberOfPlayers, positionNum),
     previousAction: positionNum === 4 || (positionNum === 1 && numberOfPlayers === 3)
       ? Limp
       : seed >= 0.4
@@ -181,8 +53,8 @@ let genSceanario = numberOfPlayers => {
 let describeScenario = (scenario: scenario) => {
   let prevPosition =
     scenario.positionNum === 1
-      ? positionOf(scenario.numberOfPlayers, scenario.numberOfPlayers)
-      : positionOf(scenario.numberOfPlayers, scenario.positionNum - 1)
+      ? Game.positionOf(scenario.numberOfPlayers, scenario.numberOfPlayers)
+      : Game.positionOf(scenario.numberOfPlayers, scenario.positionNum - 1)
   let prevAction = switch scenario.previousAction {
   | Limp => " limps in"
   | StrongRaise => ", who is normally tight, raises"
@@ -190,12 +62,12 @@ let describeScenario = (scenario: scenario) => {
   }
 
   [
-    `You are playing ${scenario.numberOfPlayers->string_of_int} handed and are ${scenario.position->stringOfPosition}.`,
+    `You are playing ${scenario.numberOfPlayers->string_of_int} handed and are ${scenario.position->Game.stringOfPosition}.`,
     `You are delt ${scenario.pocketCards.p1->Card.stringOfCard}, ${scenario.pocketCards.p2->Card.stringOfCard}.`,
     scenario.position == UnderTheGun ||
       (scenario.numberOfPlayers === 3 && scenario.position == Button)
       ? ""
-      : prevPosition->stringOfPosition ++ prevAction ++ ".",
+      : prevPosition->Game.stringOfPosition ++ prevAction ++ ".",
     "What do you do?",
   ]
   ->Js.Array2.filter(x => x != "")
@@ -204,26 +76,26 @@ let describeScenario = (scenario: scenario) => {
 
 let scenarioChoices = (scenario: scenario) => {
   if scenario.position == BigBlind && scenario.previousAction == Limp {
-    [{"name": "Check", "value": Check}, {"name": "Raise", "value": Raise}]
+    [{"name": "Check", "value": Game.Check}, {"name": "Raise", "value": Game.Raise}]
   } else {
     [
-      {"name": "Call", "value": Call},
-      {"name": scenario.previousAction == Limp ? "Raise" : "Re-raise", "value": Raise},
-      {"name": "Fold", "value": Fold},
+      {"name": "Call", "value": Game.Call},
+      {"name": scenario.previousAction == Limp ? "Raise" : "Re-raise", "value": Game.Raise},
+      {"name": "Fold", "value": Game.Fold},
     ]
   }
 }
 
 let toEquityString = x => ((1.0 -. x) *. 100.0)->roundToTenths->Js.Float.toString ++ "%"
 
-let testScenario = (action: action, scenario: scenario, hands: array<string>) => {
+let testScenario = (action: Game.action, scenario: scenario, hands: array<Classification.t>) => {
   let checker = switch scenario.position {
-  | Button => button
-  | Cutoff => cutOff
-  | BigBlind | SmallBlind => blinds
-  | _ => earlyPosition
+  | Button => AI.preflopButton
+  | Cutoff => AI.preflopCutOff
+  | BigBlind | SmallBlind => AI.preflopBlinds
+  | _ => AI.preflopEarlyPosition
   }
-  let pocketEquity = scenario.pocketCards->Simulate.classify->calcPct(hands)->roundToThousandths
+  let pocketEquity = scenario.pocketCards->Classification.make->calcPct(hands)->roundToThousandths
 
   switch (action, scenario.previousAction) {
   | (Check, Limp) if scenario.position == BigBlind && pocketEquity <= checker.raise => {
@@ -246,11 +118,12 @@ let testScenario = (action: action, scenario: scenario, hands: array<string>) =>
         ]->Js.Array2.joinWith(" ")
       (false, msg)
     }
-  | (Call, Limp) if scenario.position == SmallBlind && pocketEquity > smallBindCallingEquity => {
+  | (Call, Limp)
+    if scenario.position == SmallBlind && pocketEquity > AI.preFlopSmallBindCallingEquity => {
       let msg =
         [
           "You should have folded.",
-          `To call you should have at least ${smallBindCallingEquity->toEquityString} equity.`,
+          `To call you should have at least ${AI.preFlopSmallBindCallingEquity->toEquityString} equity.`,
           `You had ${pocketEquity->toEquityString}`,
         ]->Js.Array2.joinWith(" ")
       (false, msg)
@@ -322,7 +195,7 @@ let testScenario = (action: action, scenario: scenario, hands: array<string>) =>
       (false, msg)
     }
   | (Fold, StrongRaise) | (Call, StrongRaise)
-    if scenario.pocketCards->Simulate.classify === bluffHand => {
+    if scenario.pocketCards->Simulate.classify === AI.bluffHand => {
       let msg =
         [
           "You should have re-raised.",

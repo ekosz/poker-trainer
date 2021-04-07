@@ -29,7 +29,7 @@ let compareSuites = (suitA, suitB) => Card.intOfSuite(suitB) - Card.intOfSuite(s
 // By default cards are sorted by their rank
 let compareCards = (cardA: Card.t, cardB: Card.t) => compareRanks(cardA.rank, cardB.rank)
 
-let combinePocketAndBoard = (p: Game.pocketCards, b: Game.board) => {
+let combinePocketAndBoard = (p: Common.pocketCards, b: Common.board) => {
   Belt.Array.concatMany([
     [p.p1, p.p2, b.flop1, b.flop2, b.flop3],
     switch b {
@@ -40,7 +40,7 @@ let combinePocketAndBoard = (p: Game.pocketCards, b: Game.board) => {
   ])->Belt.SortArray.stableSortBy(compareCards)
 }
 
-let makeFlush = (pocketCards: Game.pocketCards, board: Game.board) => {
+let makeFlush = (pocketCards: Common.pocketCards, board: Common.board) => {
   open Belt.Array
   combinePocketAndBoard(pocketCards, board)
   ->reduce(Js.Dict.empty(), (acc, card) => {
@@ -59,10 +59,10 @@ let makeFlush = (pocketCards: Game.pocketCards, board: Game.board) => {
   ->keep(cards => cards->length === 5)
   ->get(0)
   ->Belt.Option.map(@warning("-8")
-  ([c1, c2, c3, c4, c5]) => {Game.c1: c1, c2: c2, c3: c3, c4: c4, c5: c5})
+  ([c1, c2, c3, c4, c5]) => {Common.c1: c1, c2: c2, c3: c3, c4: c4, c5: c5})
 }
 
-let makeStrait = (pocketCards: Game.pocketCards, board: Game.board) => {
+let makeStrait = (pocketCards: Common.pocketCards, board: Common.board) => {
   let sortedCards = combinePocketAndBoard(pocketCards, board)
   let contiguasCards = sortedCards->Belt.Array.reduce(list{}, (acc, nextCard) => {
     switch acc {
@@ -92,7 +92,7 @@ let makeStrait = (pocketCards: Game.pocketCards, board: Game.board) => {
 
     @warning("-8")
     let list{c5, c4, c3, c2, c1} = contiguasCards
-    {Game.c1: c1, c2: c2, c3: c3, c4: c4, c5: c5}->Some
+    {Common.c1: c1, c2: c2, c3: c3, c4: c4, c5: c5}->Some
   } else {
     None
   }
@@ -127,7 +127,7 @@ let makePairs = (pocketCards, board) => {
   switch pairs {
   | list{list{c1, c2, c3, c4}, list{c5, ..._}, ..._} => (
       FourOfAKind,
-      {Game.c1: c1, c2: c2, c3: c3, c4: c4, c5: c5},
+      {Common.c1: c1, c2: c2, c3: c3, c4: c4, c5: c5},
     )
   | list{list{c1, c2, c3}, list{c4, c5, ..._}, ..._} => (
       FullHouse,
@@ -156,7 +156,7 @@ let makePairs = (pocketCards, board) => {
   }
 }
 
-let stringOfScore = (score: score, hand: Game.hand) => {
+let stringOfScore = (score: score, hand: Common.hand) => {
   open Card
   switch (score, hand) {
   | (StraitFlush, {c1: {rank: Ace}}) => "Royal Flush"
@@ -173,7 +173,7 @@ let stringOfScore = (score: score, hand: Game.hand) => {
 }
 
 exception InvalidHandSize(int)
-let make = (board: Game.board, pocketCards: Game.pocketCards): (score, Game.hand) => {
+let make = (board: Common.board, pocketCards: Common.pocketCards): (score, Common.hand) => {
   switch (
     makeFlush(pocketCards, board),
     makeStrait(pocketCards, board),
