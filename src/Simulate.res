@@ -1,20 +1,11 @@
-type deck = array<Card.t>
-
 type result = {
   idx: int,
-  pocketCards: Scoring.pocketCards,
-  hand: Scoring.hand,
+  pocketCards: Game.pocketCards,
+  hand: Game.hand,
   score: Scoring.score,
 }
 
-let genDeck = (): deck => {
-  Belt.Array.makeBy(52, i => {
-    Card.suite: Card.suiteOfInt(i / 13),
-    rank: Card.rankOfInt(mod(i, 13) + 1),
-  })
-}
-
-let classify = ({Scoring.p1: p1, p2}) => {
+let classify = ({Game.p1: p1, p2}) => {
   open Card
 
   @warning("-8")
@@ -31,12 +22,12 @@ let classify = ({Scoring.p1: p1, p2}) => {
 
 let playGame = playerCount => {
   open Belt.Array
-  let d = genDeck()->shuffle
+  let d = Game.genDeck()
   let hands = makeBy(playerCount, i => {
-    {Scoring.p1: d->getUnsafe(i), p2: d->getUnsafe(playerCount + i)}
+    {Game.p1: d->getUnsafe(i), p2: d->getUnsafe(playerCount + i)}
   })
   let board = {
-    Scoring.flop1: d->getUnsafe(playerCount * 2 + 1),
+    Game.flop1: d->getUnsafe(playerCount * 2 + 1),
     flop2: d->getUnsafe(playerCount * 2 + 2),
     flop3: d->getUnsafe(playerCount * 2 + 3),
     turn: Some(d->getUnsafe(playerCount * 2 + 5)),

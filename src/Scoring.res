@@ -1,36 +1,3 @@
-/**
- * The community cards that everyone uses in combination with their pocket
- * cards to form the best hand.
- */
-type board = {
-  flop1: Card.t,
-  flop2: Card.t,
-  flop3: Card.t,
-  turn: option<Card.t>,
-  river: option<Card.t>,
-}
-
-/**
- * The cards in one's hand that are not part of the community cards
- */
-type pocketCards = {
-  p1: Card.t,
-  p2: Card.t,
-}
-
-/**
- * Five cards, made of a player's pocket cards and the community cards. The
- * cards are ordered so that c1 is always the highest ranked card and c5 is the
- * lowest
- */
-type hand = {
-  c1: Card.t,
-  c2: Card.t,
-  c3: Card.t,
-  c4: Card.t,
-  c5: Card.t,
-}
-
 exception Invariant(string)
 type score =
   | StraitFlush
@@ -62,7 +29,7 @@ let compareSuites = (suitA, suitB) => Card.intOfSuite(suitB) - Card.intOfSuite(s
 // By default cards are sorted by their rank
 let compareCards = (cardA: Card.t, cardB: Card.t) => compareRanks(cardA.rank, cardB.rank)
 
-let combinePocketAndBoard = (p, b) => {
+let combinePocketAndBoard = (p: Game.pocketCards, b: Game.board) => {
   Belt.Array.concatMany([
     [p.p1, p.p2, b.flop1, b.flop2, b.flop3],
     switch b {
@@ -73,7 +40,7 @@ let combinePocketAndBoard = (p, b) => {
   ])->Belt.SortArray.stableSortBy(compareCards)
 }
 
-let makeFlush = (pocketCards: pocketCards, board: board) => {
+let makeFlush = (pocketCards: Game.pocketCards, board: Game.board) => {
   open Belt.Array
   combinePocketAndBoard(pocketCards, board)
   ->reduce(Js.Dict.empty(), (acc, card) => {
@@ -92,10 +59,10 @@ let makeFlush = (pocketCards: pocketCards, board: board) => {
   ->keep(cards => cards->length === 5)
   ->get(0)
   ->Belt.Option.map(@warning("-8")
-  ([c1, c2, c3, c4, c5]) => {c1: c1, c2: c2, c3: c3, c4: c4, c5: c5})
+  ([c1, c2, c3, c4, c5]) => {Game.c1: c1, c2: c2, c3: c3, c4: c4, c5: c5})
 }
 
-let makeStrait = (pocketCards: pocketCards, board: board) => {
+let makeStrait = (pocketCards: Game.pocketCards, board: Game.board) => {
   let sortedCards = combinePocketAndBoard(pocketCards, board)
   let contiguasCards = sortedCards->Belt.Array.reduce(list{}, (acc, nextCard) => {
     switch acc {
@@ -125,7 +92,7 @@ let makeStrait = (pocketCards: pocketCards, board: board) => {
 
     @warning("-8")
     let list{c5, c4, c3, c2, c1} = contiguasCards
-    {c1: c1, c2: c2, c3: c3, c4: c4, c5: c5}->Some
+    {Game.c1: c1, c2: c2, c3: c3, c4: c4, c5: c5}->Some
   } else {
     None
   }
@@ -160,7 +127,7 @@ let makePairs = (pocketCards, board) => {
   switch pairs {
   | list{list{c1, c2, c3, c4}, list{c5, ..._}, ..._} => (
       FourOfAKind,
-      {c1: c1, c2: c2, c3: c3, c4: c4, c5: c5},
+      {Game.c1: c1, c2: c2, c3: c3, c4: c4, c5: c5},
     )
   | list{list{c1, c2, c3}, list{c4, c5, ..._}, ..._} => (
       FullHouse,
@@ -189,7 +156,7 @@ let makePairs = (pocketCards, board) => {
   }
 }
 
-let stringOfScore = (score: score, hand: hand) => {
+let stringOfScore = (score: score, hand: Game.hand) => {
   open Card
   switch (score, hand) {
   | (StraitFlush, {c1: {rank: Ace}}) => "Royal Flush"
@@ -206,7 +173,7 @@ let stringOfScore = (score: score, hand: hand) => {
 }
 
 exception InvalidHandSize(int)
-let make = (board: board, pocketCards: pocketCards): (score, hand) => {
+let make = (board: Game.board, pocketCards: Game.pocketCards): (score, Game.hand) => {
   switch (
     makeFlush(pocketCards, board),
     makeStrait(pocketCards, board),

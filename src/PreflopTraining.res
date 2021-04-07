@@ -31,7 +31,7 @@ type scenario = {
   previousAction: previousAction,
   positionNum: int,
   position: position,
-  pocketCards: Scoring.pocketCards,
+  pocketCards: Game.pocketCards,
 }
 
 type preFlopPcts = {
@@ -160,8 +160,7 @@ let stringOfPosition = p =>
 
 let genSceanario = numberOfPlayers => {
   @warning("-8")
-  let [p1, p2] =
-    Simulate.genDeck()->Belt.Array.shuffle->Belt.Array.slice(~offset=0, ~len=2)
+  let [p1, p2] = Game.genDeck()->Belt.Array.slice(~offset=0, ~len=2)
   let positionNum = Js.Math.random_int(1, numberOfPlayers + 1)
   let seed = Js.Math.random()
   {
