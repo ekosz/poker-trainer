@@ -420,3 +420,33 @@ let describeAction = (gameState: gameState, action: action, amount: int) => {
 
   [player.name, `(${player.position->stringOfPosition})`, actionString]->Js.Array2.joinWith(" ")
 }
+
+let avaibleActions = gameState => {
+  let player = gameState.players->Js.Array2.unsafe_get(gameState.playerTurn)
+  switch (gameState.activeBet, player.lastBet) {
+  | (None, None) => [{"name": "Check", "value": Check}, {"name": "Raise", "value": Raise}]
+  | (Some(_), None) => [
+      {"name": "Fold", "value": Fold},
+      {"name": "Call", "value": Call},
+      {"name": "Raise", "value": Raise},
+    ]
+  | (Some(x), Some(y)) if x === y => [
+      {"name": "Check", "value": Check},
+      {"name": "Raise", "value": Raise},
+    ]
+  | (Some(_), Some(_)) => [
+      {"name": "Fold", "value": Fold},
+      {"name": "Call", "value": Call},
+      {"name": "Raise", "value": Raise},
+    ]
+  | (None, Some(_)) => raise(Invariant("Should not get here"))
+  }
+}
+
+let raiseRange = gameState => {
+  let player = gameState.players->Js.Array2.unsafe_get(gameState.playerTurn)
+  switch gameState.activeBet {
+  | Some(x) => (x * 2, player.stack)
+  | None => (gameState.bigBlindAmount, player.stack)
+  }
+}

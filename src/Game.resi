@@ -76,3 +76,5 @@ let start: gameState => gameState
 let reset: gameState => gameState
 let applyAction: (gameState, action, int) => gameState
 let describeAction: (gameState, action, int) => string
+let avaibleActions: gameState => array<{"name": string, "value": action}>
+let raiseRange: gameState => (int, int)
