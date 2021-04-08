@@ -85,9 +85,8 @@ let calculatePreflopAction = (
   | (Some(x), Some(y)) if x == y =>
     // BigBlind limp. Check or raise
     if equity < checker.raise {
-      let raise =
-        Js.Math.max_int(x * 2, (losenessFactor *. 3.0 *. x->float_of_int)->int_of_float) - y
-      (Raise, raise)
+      let raise = Js.Math.max_int(x * 2, (losenessFactor *. 3.0 *. x->float_of_int)->int_of_float)
+      (Raise, raise - y)
     } else {
       (Check, 0)
     }
@@ -135,6 +134,7 @@ let calculatePreflopAction = (
       // Already raised
       let potOdds = (x - y)->float_of_int /. (x - y + pot)->float_of_int
       if equity < potOdds {
+        Js.log2("Calling", {"x": x, "y": y})
         (Call, x - y)
       } else {
         (Fold, 0)

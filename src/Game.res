@@ -118,13 +118,20 @@ let addToHistory = (playHistory, gameTurn: gameTurn, pricedAction) => {
 
 let applyPlayerAction = (
   playerState: playerState,
+  currentBet: option<int>,
   gameTurn: gameTurn,
   action: action,
   amount: int,
 ) => {
+  let lastBet = switch currentBet {
+  | _ if amount === 0 => playerState.lastBet
+  | Some(x) => (x + amount)->Some
+  | None => amount->Some
+  }
+
   {
     ...playerState,
-    lastBet: amount !== 0 ? Some(amount) : playerState.lastBet,
+    lastBet: lastBet,
     playerMode: action == Fold ? Folded : playerState.playerMode,
     playHistory: playerState.playHistory->addToHistory(gameTurn, (action, amount)),
     stack: playerState.stack - amount,
@@ -186,7 +193,10 @@ let validateAction = (
         `Call of ${amount->string_of_int} does not match active bet of ${x->string_of_int}`,
       ),
     )
-  | (Call, Some(x), Some(y)) if amount + y != x => raise(InvaildAction("Must match current bet"))
+  | (Call, Some(x), Some(y)) if amount + y != x => {
+      Js.log({"amount": amount, "x": x, "y": y})
+      raise(InvaildAction("Must match current bet"))
+    }
   | (Raise, Some(x), None) if amount < x * 2 =>
     raise(InvaildAction("Cannot raise less than double current bet"))
   | (Raise, Some(x), Some(y)) if amount + y < x * 2 =>
@@ -220,10 +230,10 @@ let make = (numberOfPlayers, startingStack, smallBlindAmout, bigBlindAmount) => 
   let buttonIdx = 0
   let deck = genDeck()
   let players = Belt.Array.makeBy(numberOfPlayers, i => {
-    let position = positionOf(numberOfPlayers, mod(i + buttonIdx, numberOfPlayers) + 1)
+    let position = positionOf(numberOfPlayers, i + 1)
     {
       idx: i,
-      name: `Player ${i->string_of_int}`,
+      name: `Player ${(i + 1)->string_of_int}`,
       position: position,
       playerMode: On,
       lastBet: None,
@@ -244,7 +254,7 @@ let make = (numberOfPlayers, startingStack, smallBlindAmout, bigBlindAmount) => 
     bigBlindAmount: bigBlindAmount,
     pot: 0,
     // UnderTheGun | Button
-    playerTurn: mod(3, numberOfPlayers),
+    playerTurn: mod(buttonIdx + 3, numberOfPlayers),
     buttonIdx: buttonIdx,
     activeBet: None,
     board: None,
@@ -255,8 +265,10 @@ let make = (numberOfPlayers, startingStack, smallBlindAmout, bigBlindAmount) => 
 let start = (gameState: gameState) => {
   let players = gameState.players->Js.Array2.map(player =>
     switch player.position {
-    | BigBlind => player->applyPlayerAction(gameState.gameTurn, Raise, gameState.bigBlindAmount)
-    | SmallBlind => player->applyPlayerAction(gameState.gameTurn, Raise, gameState.smallBlindAmout)
+    | BigBlind =>
+      player->applyPlayerAction(None, gameState.gameTurn, Raise, gameState.bigBlindAmount)
+    | SmallBlind =>
+      player->applyPlayerAction(None, gameState.gameTurn, Raise, gameState.smallBlindAmout)
     | _ => player
     }
   )
@@ -272,15 +284,21 @@ let start = (gameState: gameState) => {
 
 let reset = (gameState: gameState) => {
   let numberOfPlayers = gameState.players->Js.Array2.length
-  let buttonIdx = gameState.buttonIdx + 1
+  // Button rotates clockwise around the table
+  let buttonIdx = mod(gameState.buttonIdx + 1, numberOfPlayers)
   let deck = genDeck()
 
-  let players = gameState.players->Js.Array2.mapi((player, i) => {
-    let position = positionOf(numberOfPlayers, mod(i + buttonIdx, numberOfPlayers) + 1)
+  let players = gameState.players->Js.Array2.map(player => {
+    // Position rotates counter-clockwise relative to the button
+    let positionNum =
+      player.idx - buttonIdx >= 0
+        ? player.idx - buttonIdx
+        : numberOfPlayers + player.idx - buttonIdx
+    let position = positionOf(numberOfPlayers, positionNum + 1)
 
     // Give winning to player if won last game
     let stack = switch gameState.gameMode {
-    | Ended({winners}) if winners->Js.Array2.includes(i) =>
+    | Ended({winners}) if winners->Js.Array2.includes(player.idx) =>
       player.stack + gameState.pot / winners->Js.Array2.length
     | _ => player.stack
     }
@@ -293,17 +311,22 @@ let reset = (gameState: gameState) => {
       lastBet: None,
       playHistory: emptyHistory,
       pocketCards: {
-        p1: deck->Belt.Array.getUnsafe(i),
-        p2: deck->Belt.Array.getUnsafe(numberOfPlayers + i),
+        p1: deck->Belt.Array.getUnsafe(player.idx),
+        p2: deck->Belt.Array.getUnsafe(numberOfPlayers + player.idx),
       },
     }
   })
 
   {
     ...gameState,
+    board: None,
+    activeBet: None,
     gameMode: NotStarted,
+    gameTurn: Preflop,
     players: players,
     pot: 0,
+    // UnderTheGun | Button
+    playerTurn: mod(buttonIdx + 3, numberOfPlayers),
     buttonIdx: buttonIdx,
     deck: deck,
   }
@@ -375,13 +398,14 @@ let progressState = (gameState: gameState): gameState => {
     | None => nonFoldedPlayers->Js.Array2.unsafe_get(0)
     }
     if (
-      nextPlayer.lastBet == gameState.activeBet &&
+      gameState.activeBet == nextPlayer.lastBet &&
       nextPlayer.position == BigBlind &&
       gameState.gameTurn == Preflop
     ) {
-      // Only in the preflop phase the big blind has the option to check or raise instead of the round ending
+      // Only in the preflop phase the big blind has the option to check or
+      // raise instead of the round ending
       {...gameState, playerTurn: nextPlayer.idx}
-    } else if nextPlayer.lastBet === gameState.activeBet {
+    } else if gameState.activeBet == nextPlayer.lastBet {
       // Betting is over
       gameState->progressTurn
     } else {
@@ -395,13 +419,25 @@ let applyAction = (gameState, action, amount: int) => {
   let player = gameState.players->Js.Array2.unsafe_get(playerTurn)
   gameState->validateAction(player, action, amount)
 
-  gameState.players->Js.Array2.unsafe_set(
-    playerTurn,
-    player->applyPlayerAction(gameState.gameTurn, action, amount),
+  let players = gameState.players->Js.Array2.map(player =>
+    if player.idx === playerTurn {
+      player->applyPlayerAction(gameState.activeBet, gameState.gameTurn, action, amount)
+    } else {
+      player
+    }
   )
+
+  // If raising, set the new active bet for the table
+  let activeBet = switch (action, gameState.activeBet) {
+  | (Raise, Some(x)) => Some(x + amount)
+  | (Raise, None) => Some(amount)
+  | (_, x) => x
+  }
 
   {
     ...gameState,
+    players: players,
+    activeBet: activeBet,
     pot: pot + amount,
   }->progressState
 }
@@ -409,13 +445,17 @@ let applyAction = (gameState, action, amount: int) => {
 let describeAction = (gameState: gameState, action: action, amount: int) => {
   let player = gameState.players->Js.Array2.unsafe_get(gameState.playerTurn)
 
-  let actionString = switch (action, player.lastBet) {
-  | (Check, _) => "checks"
-  | (Fold, _) => "folds"
-  | (Call, None) => `calls ${amount->string_of_int}`
-  | (Call, Some(x)) => `adds ${amount->string_of_int} to call ${(x + amount)->string_of_int}`
-  | (Raise, None) => `raises to ${amount->string_of_int}`
-  | (Raise, Some(x)) => `raises to ${(amount + x)->string_of_int}`
+  let actionString = switch (action, gameState.activeBet, player.lastBet) {
+  | (Check, _, _) => "checks"
+  | (Fold, _, _) => "folds"
+  | (Call, _, None) => `calls ${amount->string_of_int}`
+  | (Call, _, Some(x)) => `adds ${amount->string_of_int} to call ${(x + amount)->string_of_int}`
+  | (Raise, Some(x), None) => `raises to ${(amount + x)->string_of_int} from ${x->string_of_int}`
+  | (Raise, None, None) => `bets ${amount->string_of_int}`
+  | (Raise, Some(x), Some(y)) =>
+    `adds ${amount->string_of_int} to raise to ${(y + amount)
+        ->string_of_int} from ${x->string_of_int}`
+  | (Raise, None, Some(_)) => raise(Invariant("Should not get here"))
   }
 
   [player.name, `(${player.position->stringOfPosition})`, actionString]->Js.Array2.joinWith(" ")

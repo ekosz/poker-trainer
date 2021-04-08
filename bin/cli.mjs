@@ -6,6 +6,8 @@ import inquirer from 'inquirer';
 import chalk from 'chalk';
 import { Command, Option } from 'commander/esm.mjs';
 // Make sure to run `re:build` first or these imports will fail
+import * as AI from '../src/AI.mjs';
+import * as Game from '../src/Game.mjs';
 import * as PreflopTraining from '../src/PreflopTraining.mjs';
 import * as Simulate from '../src/Simulate.mjs';
 import * as Card from '../src/Card.mjs';
@@ -40,7 +42,6 @@ const randomInt = (min, max) => {
 }
 
 async function preFlopTraining(numberOfPlayers) {
-  numberOfPlayers = numberOfPlayers || randomInt(3, 11);
   const scenario = PreflopTraining.genSceanario(numberOfPlayers);
   const question = {
     type: 'list',
@@ -58,6 +59,71 @@ async function preFlopTraining(numberOfPlayers) {
     process.stdout.write(chalk.green.bold('Correct!') + ' ' + why + '\n');
   } else {
     process.stdout.write(chalk.red.bold('Incorrect!') + ' ' + why + '\n');
+  }
+}
+
+let makeAIGame = ({ numberOfPlayers, playerPosition, ais }) => {
+  let hands = loadComputedHands(numberOfPlayers);
+
+  return async initialState => {
+    let gameState = Game.start(initialState);
+    let player = gameState.players[playerPosition];
+    console.log('Starting stack sizes');
+    gameState.players.forEach(p => console.log(p.name, p.stack))
+    console.log(`You are ${Game.stringOfPosition(player.position)}.`);
+    console.log(`You are delt ${Card.stringOfCard(player.pocketCards.p1)}, ${Card.stringOfCard(player.pocketCards.p2)}.`);
+    while(!gameState.gameMode.winners) {
+      let action;
+      let amount;
+      if (gameState.playerTurn === playerPosition) {
+        console.log("Pot size", gameState.pot)
+        const response = await inquirer.prompt([{
+          type: 'list',
+          name: 'action',
+          message: 'What would you like to do?',
+          choices: Game.avaibleActions(gameState),
+        }, {
+          type: 'number',
+          name: 'amount',
+          validate: x => {
+            const [min, max] = Game.raiseRange(gameState);
+            if (x < min) return `Cannot raise less than ${min}`;
+            if (x > max) return `Cannot raise more than ${max}`;
+            return true;
+          },
+          when: ({ action }) => action === 2 /* Raise */,
+        }]);
+        action = response.action;
+        if (action === 2 /* Raise */) {
+          amount = response.amount
+        } else if (action === 3 /* Fold */ || action === 0 /* Check */) {
+          amount = 0
+        } else {
+          amount = gameState.activeBet;
+        }
+      } else {
+        [action, amount] = AI.calculateAction(hands, ais[gameState.playerTurn], gameState);
+      }
+      const nextState = Game.applyAction(gameState, action, amount)
+      console.log(Game.describeAction(gameState, action, amount));
+      if (gameState.board !== nextState.board) {
+        console.log('The board is', [
+          nextState.board.flop1,
+          nextState.board.flop2,
+          nextState.board.flop3,
+          nextState.board.turn,
+          nextState.board.river,
+        ].filter(Boolean).map(Card.stringOfCard));
+      }
+      gameState = nextState;
+      // Sleep for 200ms to make it seem like real work is happening
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    gameState.gameMode.winners.forEach(winningIdx => {
+      const winner = gameState.players[winningIdx];
+      console.log(winner.name, 'won with', [Card.stringOfCard(winner.pocketCards.p1), Card.stringOfCard(winner.pocketCards.p2)])
+    });
+    return gameState;
   }
 }
 
@@ -102,14 +168,51 @@ program
   .addOption(new Option('-m, --mode <mode>', 'training mode').choices(['pre-flop']).default('pre-flop'))
   .addOption(new Option('-h, --hands <size>', 'hand size').choices(['3','4','5','6','7','8','9','10','random']).default('random'))
   .action(async options => {
-    let numberOfPlayers;
-    if (options.hands !== 'random') {
-      numberOfPlayers = parseInt(options.hands, 10);
-    }
+    const numberOfPlayers = options.hands !== 'random' ? parseInt(options.hands, 10) : randomInt(3, 11);
     while(true) {
       await preFlopTraining(numberOfPlayers);
       if (!(await inquirer.prompt([{type: 'confirm', name: 'again', default: true }])).again) {
         break;
+      }
+    }
+  });
+
+program
+  .command('play')
+  .description('players a game with (pretty darn bad) AI')
+  .addOption(new Option('-h, --hands <size>', 'hand size').choices(['3','4','5','6','7','8','9','10','random']).default('9'))
+  .addOption(new Option('-s, --stack <amount>', 'starting stack size').default('200'))
+  .addOption(new Option('-bb, --big-blind <amount>', 'big blind').default('2'))
+  .addOption(new Option('-ss, --small-blind <amount>', 'small blind').default('1'))
+  .action(async options => {
+    const numberOfPlayers = options.hands !== 'random' ? parseInt(options.hands, 10) : randomInt(3, 11);
+    let playerPosition = randomInt(0, numberOfPlayers)
+    const ais = Array.from(new Array(numberOfPlayers)).map(() => Math.random() + 0.5)
+    let playAIGame = makeAIGame({ numberOfPlayers, playerPosition, ais })
+    let gameState = Game.make(
+      numberOfPlayers,
+      parseInt(options.stack, 10),
+      parseInt(options.smallBlind, 10),
+      parseInt(options.bigBlind, 10),
+    );
+    // Override name for the non-NPC
+    gameState.players[playerPosition].name = 'You'
+
+    while(true) {
+      try {
+        gameState = await playAIGame(gameState);
+      } catch (err) {
+        console.error(err);
+        process.exit(1);
+      }
+      if (!(await inquirer.prompt([{type: 'confirm', name: 'again', default: true }])).again) {
+        break;
+      }
+      try {
+        gameState = Game.reset(gameState)
+      } catch (err) {
+        console.error(err);
+        process.exit(1);
       }
     }
   });
