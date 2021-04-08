@@ -397,19 +397,20 @@ let progressState = (gameState: gameState): gameState => {
     | Some(x) => x
     | None => nonFoldedPlayers->Js.Array2.unsafe_get(0)
     }
-    if (
-      gameState.activeBet == nextPlayer.lastBet &&
-      nextPlayer.position == BigBlind &&
-      gameState.gameTurn == Preflop
-    ) {
-      // Only in the preflop phase the big blind has the option to check or
+    switch (gameState.gameTurn, nextPlayer.playHistory) {
+    | (Preflop, {preflop: None})
+    | (Flop, {flop: None})
+    | (Turn, {turn: None})
+    | (River, {river: None}) => {...gameState, playerTurn: nextPlayer.idx}
+    | (Preflop, _)
+      if gameState.activeBet == Some(gameState.bigBlindAmount) &&
+        nextPlayer.position ==
+          BigBlind => // Only in the preflop phase the big blind has the option to check or
       // raise instead of the round ending
       {...gameState, playerTurn: nextPlayer.idx}
-    } else if gameState.activeBet == nextPlayer.lastBet {
-      // Betting is over
+    | _ if gameState.activeBet == nextPlayer.lastBet => // Betting is over
       gameState->progressTurn
-    } else {
-      {...gameState, playerTurn: nextPlayer.idx}
+    | _ => {...gameState, playerTurn: nextPlayer.idx}
     }
   }
 }
