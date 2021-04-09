@@ -134,7 +134,6 @@ let calculatePreflopAction = (
       // Already raised
       let potOdds = (x - y)->float_of_int /. (x - y + pot)->float_of_int
       if equity < potOdds {
-        Js.log2("Calling", {"x": x, "y": y})
         (Call, x - y)
       } else {
         (Fold, 0)

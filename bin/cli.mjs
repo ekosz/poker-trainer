@@ -76,7 +76,8 @@ let makeAIGame = ({ numberOfPlayers, playerPosition, ais }) => {
       let action;
       let amount;
       if (gameState.playerTurn === playerPosition) {
-        console.log("Pot size", gameState.pot)
+        player = gameState.players[gameState.playerTurn];
+        console.log("Pot size", gameState.pot, "Current bet", gameState.activeBet || '(None)', "Last bet", player.lastBet || '(Never)')
         const response = await inquirer.prompt([{
           type: 'list',
           name: 'action',
@@ -95,11 +96,11 @@ let makeAIGame = ({ numberOfPlayers, playerPosition, ais }) => {
         }]);
         action = response.action;
         if (action === 2 /* Raise */) {
-          amount = response.amount
+          amount = response.amount - (player.lastBet || 0)
         } else if (action === 3 /* Fold */ || action === 0 /* Check */) {
           amount = 0
         } else {
-          amount = gameState.activeBet;
+          amount = gameState.activeBet - (player.lastBet || 0);
         }
       } else {
         [action, amount] = AI.calculateAction(hands, ais[gameState.playerTurn], gameState);

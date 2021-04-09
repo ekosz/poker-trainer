@@ -408,7 +408,8 @@ let progressState = (gameState: gameState): gameState => {
           BigBlind => // Only in the preflop phase the big blind has the option to check or
       // raise instead of the round ending
       {...gameState, playerTurn: nextPlayer.idx}
-    | _ if gameState.activeBet == nextPlayer.lastBet => // Betting is over
+    | _ if gameState.activeBet == nextPlayer.lastBet =>
+      // Betting is over
       gameState->progressTurn
     | _ => {...gameState, playerTurn: nextPlayer.idx}
     }
@@ -458,8 +459,13 @@ let describeAction = (gameState: gameState, action: action, amount: int) => {
         ->string_of_int} from ${x->string_of_int}`
   | (Raise, None, Some(_)) => raise(Invariant("Should not get here"))
   }
-
-  [player.name, `(${player.position->stringOfPosition})`, actionString]->Js.Array2.joinWith(" ")
+  let potSize =
+    action == Call || action == Raise
+      ? `| Pot is now ${(gameState.pot + amount)->string_of_int}`
+      : ""
+  [player.name, `(${player.position->stringOfPosition})`, actionString, potSize]
+  ->Js.Array2.filter(x => x !== "")
+  ->Js.Array2.joinWith(" ")
 }
 
 let avaibleActions = gameState => {
